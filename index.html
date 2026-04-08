@@ -1,0 +1,86 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube This or That</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Inter:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <canvas id="sparkle-canvas" aria-hidden="true"></canvas>
+
+  <video id="webcam" autoplay playsinline muted></video>
+
+  <header class="topbar">
+    <div class="nav-left">
+      <div class="yt-pill">
+        <span class="yt-play"></span>
+      </div>
+      <span class="nav-label">Home</span>
+    </div>
+
+    <div class="nav-center">
+      <span class="logo-main">YouTube</span>
+      <span class="divider-line"></span>
+      <span class="logo-sub">THIS OR THAT</span>
+    </div>
+
+    <div class="nav-right">
+      <span id="clock">--:--</span>
+      <button class="nav-btn" type="button">About</button>
+      <button class="icon-btn" id="soundToggle" type="button" aria-label="Toggle sound">
+        <span class="speaker-icon"></span>
+      </button>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="choices-wrap">
+      <article class="choice-card" id="leftCard" data-side="left">
+        <div class="thumb-wrap">
+          <img id="leftThumb" alt="Left video thumbnail" />
+          <span class="video-time" id="leftDuration">--:--</span>
+        </div>
+        <h2 class="video-title" id="leftTitle">Loading...</h2>
+      </article>
+
+      <div class="center-play" aria-hidden="true"></div>
+
+      <article class="choice-card" id="rightCard" data-side="right">
+        <div class="thumb-wrap">
+          <img id="rightThumb" alt="Right video thumbnail" />
+          <span class="video-time" id="rightDuration">--:--</span>
+        </div>
+        <h2 class="video-title" id="rightTitle">Loading...</h2>
+      </article>
+    </section>
+
+    <section class="status-area">
+      <p id="instruction">Loading trending videos and starting camera...</p>
+      <div class="tilt-meter">
+        <div class="tilt-dot" id="tiltDot"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bottom-icons">
+    <button class="icon-btn" type="button" aria-label="Camera">
+      <span class="camera-icon"></span>
+    </button>
+    <button class="icon-btn" type="button" aria-label="Share">
+      <span class="share-icon"></span>
+    </button>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
