@@ -123,14 +123,17 @@ let facePoints = [];
 let sparkleSeeds = [];
 let faceVisible = false;
 
+const sessionStartTime = Date.now();
+
 function updateClock() {
-  const now = new Date();
-  clock.textContent = now.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false
-  });
+  const elapsedMs = Date.now() - sessionStartTime;
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  clock.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
+
 setInterval(updateClock, 1000);
 updateClock();
 
@@ -420,7 +423,7 @@ function angleBetween(a, b) {
 
 // Number of sparkles to scatter inside the face. ~22 reads as decorative
 // without looking noisy.
-const SPARKLE_COUNT = 22;
+const SPARKLE_COUNT = 45;
 
 // Stable sparkle templates in face-local coordinates. Each has a (u, v)
 // position in normalized face space where (0,0) is face center, u is
@@ -444,16 +447,16 @@ function ensureTemplates() {
 
     // Face is roughly an ellipse taller than wide. Accept points inside
     // a 0.85 × 1.1 ellipse so sparkles stay safely within the silhouette.
-    if ((u / 0.85) ** 2 + (v / 1.1) ** 2 > 1) continue;
+    if ((u / 0.95) ** 2 + (v / 1.2) ** 2 > 1) continue;
 
     // Three size tiers for clear hero/medium/small hierarchy.
     let size;
     if (SPARKLE_TEMPLATES.length % 5 === 0) {
-      size = 32 + r3 * 16;   // hero 32–48px
+    size = 36 + r3 * 18;
     } else if (SPARKLE_TEMPLATES.length % 2 === 0) {
-      size = 16 + r3 * 10;   // medium 16–26px
+    size = 20 + r3 * 12;
     } else {
-      size = 8 + r3 * 6;     // small 8–14px accents
+    size = 10 + r3 * 8;
     }
 
     SPARKLE_TEMPLATES.push({
@@ -659,3 +662,32 @@ soundToggle.addEventListener("click", () => {
     ? "images/soundonicon.svg"
     : "images/soundofficon.svg";
 });
+
+const refreshPageBtn = document.getElementById("refreshPageBtn");
+
+if (refreshPageBtn) {
+  refreshPageBtn.addEventListener("click", () => {
+    window.location.reload();
+  });
+}
+
+const screenshotBtn = document.getElementById("screenshotBtn");
+
+if (screenshotBtn) {
+  screenshotBtn.addEventListener("click", async () => {
+    try {
+      const shotCanvas = await html2canvas(document.body, {
+        backgroundColor: null,
+        useCORS: true,
+        scale: 2
+      });
+
+      const link = document.createElement("a");
+      link.href = shotCanvas.toDataURL("image/png");
+      link.download = "youtube-this-or-that.png";
+      link.click();
+    } catch (error) {
+      console.error("Screenshot failed:", error);
+    }
+  });
+}

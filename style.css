@@ -105,6 +105,17 @@ body {
   line-height: 1;
 }
 
+.logo-refresh-btn {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
 .divider-line {
   width: 2px;
   height: 40px;
@@ -131,11 +142,42 @@ body {
   transform: translateX(1px);
 }
 
-.nav-label {
-  font-size: 1.05rem;
+.nav-label,
+.nav-btn,
+#clock {
+  font-family: "Roboto Condensed", sans-serif;
+  font-weight: 500;
+  font-size: 22.73px;
+  line-height: 1.32;
+  letter-spacing: -0.02em;
+  color: var(--brown);
 }
 
-.nav-btn,
+.nav-btn {
+  display: inline-block;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  text-decoration: none;
+  appearance: none;
+  -webkit-appearance: none;
+  box-shadow: none;
+  outline: none;
+  cursor: pointer;
+}
+
+.nav-btn:visited,
+.nav-btn:hover,
+.nav-btn:active {
+  color: var(--brown);
+  text-decoration: none;
+}
+
+.about-link {
+  text-decoration: none;
+}
+
 .icon-btn {
   background: transparent;
   border: 0;
@@ -283,7 +325,7 @@ body {
   font-family: "SF Pro Rounded", "SF Compact Rounded", ui-rounded, "Nunito", "Arial Rounded MT Bold", sans-serif;
   font-weight: 700;
   font-style: normal;
-  letter-spacing: -0.02em;
+  letter-spacing: 0em;
   max-width: 412px;
 }
 
@@ -362,6 +404,27 @@ body {
 .choice-card.selected .video-title {
   transform: scale(1.02);
 }
+
+.nav-youtube-icon {
+  width: 36px;
+  height: auto;
+}
+
+.nav-sound-icon {
+  width: 24px;
+  height: auto;
+}
+
+.bottom-camera-icon {
+  width: 28px;
+  height: auto;
+}
+
+.bottom-share-icon {
+  width: 24px;
+  height: auto;
+}
+
 
 @media (max-width: 1080px) {
   body {

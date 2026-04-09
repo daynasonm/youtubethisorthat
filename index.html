@@ -11,6 +11,7 @@
     href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@700&family=Nunito:wght@700&display=swap"
     rel="stylesheet"
   />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -25,12 +26,14 @@
   </div>
 
   <div class="nav-center">
+  <button class="logo-refresh-btn" id="refreshPageBtn" type="button" aria-label="Refresh page">
     <img src="images/youtubethisorthatlogo.svg" alt="YouTube This or That" class="nav-logo-svg" />
-  </div>
+  </button>
+</div>
 
   <div class="nav-right">
     <span id="clock">17:11</span>
-    <button class="nav-btn" type="button">About</button>
+    <a class="nav-btn about-link" href="about.html">About</a>
     <button class="icon-btn" id="soundToggle" type="button" aria-label="Toggle sound">
       <img src="images/soundonicon.svg" alt="" class="nav-svg nav-sound-icon" id="soundIconImg" />
     </button>
@@ -67,9 +70,10 @@
   </main>
 
   <footer class="bottom-icons">
-  <button class="icon-btn" type="button" aria-label="Camera">
+  <button class="icon-btn" id="screenshotBtn" type="button" aria-label="Screenshot">
     <img src="images/screencaptureicon.svg" alt="" class="bottom-svg bottom-camera-icon" />
   </button>
+
   <button class="icon-btn" type="button" aria-label="Share">
     <img src="images/shareicon.svg" alt="" class="bottom-svg bottom-share-icon" />
   </button>
@@ -77,6 +81,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
