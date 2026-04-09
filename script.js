@@ -17,7 +17,7 @@
   small built-in sample set so you can still test the head-tilt interaction.
 */
 
-const YOUTUBE_API_KEY = "YOUR_YOUTUBE_API_KEY";
+const YOUTUBE_API_KEY = "AIzaSyCodorc6VuxgaNJ4_Rh5d-Hq6LmHFEp5LY";
 const REGION_CODE = "US";
 const REDIRECT_DELAY = 900;
 const TILT_THRESHOLD = 10;
@@ -251,6 +251,45 @@ function chooseRandomTwo(items) {
   return picked;
 }
 
+// Preload a thumbnail URL and resolve true only if it actually loads.
+// Guards against 404s, broken links, and YouTube's "this image isn't available"
+// gray placeholder that sometimes comes back instead of the real thumbnail.
+function preloadThumbnail(url) {
+  return new Promise((resolve) => {
+    if (!url) {
+      resolve(false);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      // YouTube's 404 placeholder is exactly 120x90. Reject it.
+      if (img.naturalWidth <= 120 && img.naturalHeight <= 90) {
+        resolve(false);
+      } else {
+        resolve(true);
+      }
+    };
+    img.onerror = () => resolve(false);
+    img.src = url;
+  });
+}
+
+// Shuffle the candidate pool and walk it in pairs, preloading each pair's
+// thumbnails. Return the first pair where BOTH load successfully.
+async function pickValidPair(items) {
+  const pool = shuffle(items);
+  for (let i = 0; i < pool.length - 1; i += 1) {
+    const a = pool[i];
+    const b = pool[i + 1];
+    const [okA, okB] = await Promise.all([
+      preloadThumbnail(getThumbnail(a)),
+      preloadThumbnail(getThumbnail(b))
+    ]);
+    if (okA && okB) return [a, b];
+  }
+  throw new Error("No pair of videos with working thumbnails found.");
+}
+
 function showErrorState(message) {
   leftTitle.textContent = "Could not load videos";
   rightTitle.textContent = "Check browser console";
@@ -279,7 +318,8 @@ async function loadVideos() {
   try {
     instruction.textContent = "Loading trending videos...";
     const items = await fetchTrendingVideos();
-    setVideos(chooseRandomTwo(items));
+    const pair = await pickValidPair(items);
+    setVideos(pair);
   } catch (error) {
     console.error("[YouTube This or That] API call failed:", error);
     showErrorState(`YouTube API failed: ${error.message}`);
@@ -312,7 +352,19 @@ function confirmSelection(side) {
 
   setTimeout(() => {
     const videoId = selectedVideos[side].id;
-    window.location.href = `https://www.youtube.com/watch?v=${videoId}`;
+    // Open in new tab so the back button on the original tab still works
+    // and so we don't get stuck in a redirect loop if the user returns
+    // with their head still tilted.
+    window.open(`https://www.youtube.com/watch?v=${videoId}`, "_blank");
+
+    // Reset selection state so the user can immediately pick again.
+    isRedirecting = false;
+    stableFrames = 0;
+    currentTiltSide = null;
+    setCardState(null);
+    instruction.textContent = "Tilt your head left or right to choose";
+    // Reload fresh videos for the next round.
+    loadVideos();
   }, REDIRECT_DELAY);
 }
 
@@ -366,63 +418,119 @@ function angleBetween(a, b) {
   return Math.atan2(b.y - a.y, b.x - a.x) * (180 / Math.PI);
 }
 
-// MediaPipe FaceMesh face oval landmarks — the outline of the face silhouette.
-// Ordered so consecutive indices are neighbors around the oval, which lets us
-// interpolate between them for a dense, clean outline.
-const FACE_OVAL = [
-  10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288,
-  397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136,
-  172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109
-];
+// Number of sparkles to scatter inside the face. ~22 reads as decorative
+// without looking noisy.
+const SPARKLE_COUNT = 22;
 
-// Number of sparkles inserted between each pair of oval landmarks.
-// Higher = denser silhouette outline.
-const POINTS_PER_SEGMENT = 4;
+// Stable sparkle templates in face-local coordinates. Each has a (u, v)
+// position in normalized face space where (0,0) is face center, u is
+// horizontal (±1 = temple edge), v is vertical (±1 = forehead/chin edge).
+// Generated once so sparkles keep their identity as the head moves.
+const SPARKLE_TEMPLATES = [];
+function ensureTemplates() {
+  if (SPARKLE_TEMPLATES.length > 0) return;
+  let i = 0;
+  // Rejection sample inside an ellipse until we have SPARKLE_COUNT points.
+  while (SPARKLE_TEMPLATES.length < SPARKLE_COUNT && i < 500) {
+    // Deterministic pseudo-random seeded by i so templates are stable.
+    const r1 = Math.abs(Math.sin(i * 12.9898) * 43758.5453) % 1;
+    const r2 = Math.abs(Math.sin(i * 78.233) * 43758.5453) % 1;
+    const r3 = Math.abs(Math.sin(i * 37.719) * 43758.5453) % 1;
+    const r4 = Math.abs(Math.sin(i * 93.145) * 43758.5453) % 1;
+    i += 1;
 
-// Stable per-sparkle properties, keyed by position in the sparkle array.
-// Seeded ONCE so size/rotation/twinkle don't re-randomize every frame —
-// that's what was causing the shimmery trailing feel.
-const SPARKLE_PROPS = [];
-function getSparkleProps(i) {
-  if (!SPARKLE_PROPS[i]) {
-    // Deterministic-ish pseudo-random based on index so it stays consistent.
-    const seed = Math.sin(i * 912.37) * 43758.5453;
-    const rnd = seed - Math.floor(seed);
-    const seed2 = Math.sin(i * 238.19) * 12543.219;
-    const rnd2 = seed2 - Math.floor(seed2);
-    SPARKLE_PROPS[i] = {
-      // Mostly small with occasional bigger accents — reads as a clean outline.
-      size: i % 7 === 0 ? 9 + rnd * 6 : 4 + rnd * 4,
-      rotation: rnd2 * Math.PI * 2,
-      twinkle: rnd * Math.PI * 2,
-      alpha: i % 5 === 0 ? 0.95 : 0.6 + rnd2 * 0.3
-    };
+    const u = (r1 - 0.5) * 2; // -1..1
+    const v = (r2 - 0.5) * 2; // -1..1
+
+    // Face is roughly an ellipse taller than wide. Accept points inside
+    // a 0.85 × 1.1 ellipse so sparkles stay safely within the silhouette.
+    if ((u / 0.85) ** 2 + (v / 1.1) ** 2 > 1) continue;
+
+    // Three size tiers for clear hero/medium/small hierarchy.
+    let size;
+    if (SPARKLE_TEMPLATES.length % 5 === 0) {
+      size = 32 + r3 * 16;   // hero 32–48px
+    } else if (SPARKLE_TEMPLATES.length % 2 === 0) {
+      size = 16 + r3 * 10;   // medium 16–26px
+    } else {
+      size = 8 + r3 * 6;     // small 8–14px accents
+    }
+
+    SPARKLE_TEMPLATES.push({
+      u,
+      v,
+      size,
+      rotation: r4 * Math.PI * 2,
+      twinkle: r3 * Math.PI * 2,
+      alpha: SPARKLE_TEMPLATES.length % 5 === 0 ? 1.0 : 0.75 + r4 * 0.25
+    });
   }
-  return SPARKLE_PROPS[i];
 }
+ensureTemplates();
+
+// Holds the frame-by-frame transformed sparkle positions (in screen coords).
+// Rewritten every face-mesh frame by seedSparkles.
+let sparkleFrame = [];
 
 function seedSparkles(landmarks) {
-  // Walk the oval and insert interpolated points between each pair.
-  const points = [];
-  for (let i = 0; i < FACE_OVAL.length; i += 1) {
-    const a = landmarks[FACE_OVAL[i]];
-    const b = landmarks[FACE_OVAL[(i + 1) % FACE_OVAL.length]];
-    if (!a || !b) continue;
-    const aScreen = getScreenPoint(a);
-    const bScreen = getScreenPoint(b);
-    for (let step = 0; step < POINTS_PER_SEGMENT; step += 1) {
-      const t = step / POINTS_PER_SEGMENT;
-      points.push({
-        x: aScreen.x + (bScreen.x - aScreen.x) * t,
-        y: aScreen.y + (bScreen.y - aScreen.y) * t
-      });
-    }
+  // Use a few stable landmarks to establish a face-local coordinate frame:
+  //   10  = top of forehead
+  //   152 = bottom of chin
+  //   234 = left temple
+  //   454 = right temple
+  const top = landmarks[10];
+  const bottom = landmarks[152];
+  const leftTemple = landmarks[234];
+  const rightTemple = landmarks[454];
+  if (!top || !bottom || !leftTemple || !rightTemple) {
+    sparkleFrame = [];
+    return;
   }
-  sparkleSeeds = points;
+
+  const topS = getScreenPoint(top);
+  const bottomS = getScreenPoint(bottom);
+  const leftS = getScreenPoint(leftTemple);
+  const rightS = getScreenPoint(rightTemple);
+
+  // Face center = midpoint of the vertical axis (forehead → chin)
+  const cx = (topS.x + bottomS.x) / 2;
+  const cy = (topS.y + bottomS.y) / 2;
+
+  // Half-extents of the face-local coordinate system
+  const halfWidth = Math.hypot(rightS.x - leftS.x, rightS.y - leftS.y) / 2;
+  const halfHeight = Math.hypot(bottomS.x - topS.x, bottomS.y - topS.y) / 2;
+
+  // Vertical-axis rotation (forehead-to-chin direction)
+  const vertAngle = Math.atan2(bottomS.y - topS.y, bottomS.x - topS.x) - Math.PI / 2;
+  const cos = Math.cos(vertAngle);
+  const sin = Math.sin(vertAngle);
+
+  // Transform each template from face-local (u, v) to screen (x, y),
+  // keeping the template's stable size/rotation/alpha/twinkle.
+  sparkleFrame = SPARKLE_TEMPLATES.map((t) => {
+    // Scale by face half-extents
+    const localX = t.u * halfWidth;
+    const localY = t.v * halfHeight;
+    // Rotate by face tilt
+    const rx = localX * cos - localY * sin;
+    const ry = localX * sin + localY * cos;
+    return {
+      x: cx + rx,
+      y: cy + ry,
+      size: t.size,
+      rotation: t.rotation + vertAngle,
+      twinkle: t.twinkle,
+      alpha: t.alpha
+    };
+  });
 }
 
 function drawStar(x, y, radius, rotation, alpha) {
-  const points = 4;
+  // Sharp 4-point sparkle (✦). Two pairs of long thin points with a very
+  // pinched middle — inner radius is 10% of outer so the points read as
+  // actual spikes, not a round blob.
+  const spikes = 4;
+  const inner = radius * 0.1;
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(rotation);
@@ -430,9 +538,9 @@ function drawStar(x, y, radius, rotation, alpha) {
   ctx.fillStyle = "#ffffff";
   ctx.beginPath();
 
-  for (let i = 0; i < points * 2; i += 1) {
-    const angle = (Math.PI / points) * i;
-    const r = i % 2 === 0 ? radius : radius * 0.22;
+  for (let i = 0; i < spikes * 2; i += 1) {
+    const angle = (Math.PI / spikes) * i - Math.PI / 2;
+    const r = i % 2 === 0 ? radius : inner;
     const px = Math.cos(angle) * r;
     const py = Math.sin(angle) * r;
     if (i === 0) ctx.moveTo(px, py);
@@ -445,21 +553,19 @@ function drawStar(x, y, radius, rotation, alpha) {
 }
 
 function drawSparkles(timestamp) {
-  // Hard clear — no motion-blur, no trailing. Sparkles represent the current
-  // silhouette position only.
+  // Hard clear — no motion-blur, no trailing.
   ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-  if (!faceVisible || sparkleSeeds.length === 0) return;
+  if (!faceVisible || sparkleFrame.length === 0) return;
 
-  for (let i = 0; i < sparkleSeeds.length; i += 1) {
-    const s = sparkleSeeds[i];
-    const props = getSparkleProps(i);
-    const pulse = 0.85 + Math.sin(timestamp * 0.003 + props.twinkle) * 0.15;
+  for (let i = 0; i < sparkleFrame.length; i += 1) {
+    const s = sparkleFrame[i];
+    const pulse = 0.85 + Math.sin(timestamp * 0.003 + s.twinkle) * 0.15;
     drawStar(
       s.x,
       s.y,
-      props.size * pulse,
-      props.rotation,
-      Math.min(1, props.alpha * pulse)
+      s.size * pulse,
+      s.rotation,
+      Math.min(1, s.alpha * pulse)
     );
   }
 }
@@ -498,7 +604,7 @@ async function startCameraAndTracking() {
       if (!landmarks) {
         faceVisible = false;
         facePoints = [];
-        sparkleSeeds = [];
+        sparkleFrame = [];
         evaluateTilt(0);
         return;
       }
@@ -541,3 +647,15 @@ document.getElementById("soundToggle").addEventListener("click", () => {
   await loadVideos();
   await startCameraAndTracking();
 })();
+
+const soundToggle = document.getElementById("soundToggle");
+const soundIconImg = document.getElementById("soundIconImg");
+
+let soundOn = true;
+
+soundToggle.addEventListener("click", () => {
+  soundOn = !soundOn;
+  soundIconImg.src = soundOn
+    ? "images/soundonicon.svg"
+    : "images/soundofficon.svg";
+});

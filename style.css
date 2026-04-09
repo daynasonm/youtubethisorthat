@@ -75,10 +75,10 @@ body {
 }
 
 .nav-center {
-  gap: 14px;
+  gap: 12px;
   justify-self: center;
-  font-family: "Alfa Slab One", serif;
-  letter-spacing: 0.02em;
+  font-family: "Zilla Slab", serif;
+  letter-spacing: 0;
 }
 
 .nav-right {
@@ -94,13 +94,13 @@ body {
 }
 
 .logo-main {
-  font-family: "Alfa Slab One", serif;
+  font-family: "Zilla Slab", serif;
   font-size: clamp(1.8rem, 2.3vw, 2.7rem);
   line-height: 1;
 }
 
 .logo-sub {
-  font-family: "Alfa Slab One", serif;
+  font-family: "Zilla Slab", serif;
   font-size: clamp(1.2rem, 1.6vw, 1.8rem);
   line-height: 1;
 }
@@ -149,98 +149,45 @@ body {
   font-size: 1.1rem;
 }
 
-.speaker-icon,
-.camera-icon,
-.share-icon {
-  display: inline-block;
-  position: relative;
+.nav-svg,
+.bottom-svg,
+.nav-logo-svg {
+  display: block;
 }
 
-.speaker-icon {
-  width: 24px;
-  height: 18px;
+.nav-youtube-icon {
+  width: 36px;
+  height: auto;
 }
 
-.speaker-icon::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 4px;
-  width: 10px;
-  height: 10px;
-  background: var(--brown);
-  clip-path: polygon(0 30%, 40% 30%, 72% 0, 72% 100%, 40% 70%, 0 70%);
+.nav-logo-svg {
+  width: 255px;
+  height: auto;
 }
 
-.speaker-icon::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  top: -1px;
-  width: 10px;
-  height: 20px;
-  border: 3px solid var(--brown);
-  border-left: 0;
-  border-top-right-radius: 16px;
-  border-bottom-right-radius: 16px;
+.nav-sound-icon {
+  width: 26px;
+  height: auto;
 }
 
-.camera-icon {
-  width: 28px;
-  height: 18px;
-  background: var(--brown);
-  border-radius: 5px;
+.bottom-camera-icon {
+  width: 30px;
+  height: auto;
 }
 
-.camera-icon::before {
-  content: "";
-  position: absolute;
-  width: 10px;
-  height: 6px;
-  background: var(--brown);
-  top: -4px;
-  left: 4px;
-  border-radius: 2px 2px 0 0;
+.bottom-share-icon {
+  width: 25px;
+  height: auto;
 }
 
-.camera-icon::after {
-  content: "";
-  position: absolute;
-  width: 7px;
-  height: 7px;
-  border: 2px solid #fff0cf;
-  border-radius: 50%;
-  top: 4px;
-  left: 9px;
-}
-
-.share-icon {
-  width: 24px;
-  height: 24px;
-}
-
-.share-icon::before {
-  content: "";
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border-top: 4px solid var(--brown);
-  border-right: 4px solid var(--brown);
-  transform: rotate(45deg);
-  top: 1px;
-  right: 0;
-}
-
-.share-icon::after {
-  content: "";
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  border-left: 4px solid var(--brown);
-  border-bottom: 4px solid var(--brown);
-  border-bottom-left-radius: 10px;
-  left: 1px;
-  bottom: 1px;
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
 }
 
 .page {
@@ -310,19 +257,34 @@ body {
 
 .video-title {
   width: min(92%, 650px);
-  margin: 92px auto 0;
+  margin: 86px auto 0;
   text-align: center;
-  color: #fff2c6;
-  font-family: "Alfa Slab One", serif;
-  font-size: clamp(2rem, 2.5vw, 3.25rem);
-  line-height: 1.16;
-  letter-spacing: 0.01em;
-  text-shadow:
-    -3px -3px 0 var(--brown),
-    3px -3px 0 var(--brown),
-    -3px 3px 0 var(--brown),
-    3px 3px 0 var(--brown),
-    0 4px 8px rgba(93, 36, 15, 0.15);
+  font-size: 40px;
+  line-height: 1.15;
+  color: #FFF1CB;
+  -webkit-text-stroke: 8px #582617;
+  paint-order: stroke fill;
+  text-wrap: balance;
+}
+
+/* Left card → Zilla Slab Bold, +2% tracking */
+.choice-card[data-side="left"] .video-title {
+  font-family: "Zilla Slab", serif;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: 0.02em;
+  max-width: 590px;
+}
+
+/* Right card → SF Compact Rounded (Apple system), -2% tracking.
+   ui-rounded maps to SF Compact Rounded on Apple devices; Nunito is the
+   closest free fallback for Windows/Android. */
+.choice-card[data-side="right"] .video-title {
+  font-family: "SF Pro Rounded", "SF Compact Rounded", ui-rounded, "Nunito", "Arial Rounded MT Bold", sans-serif;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: -0.02em;
+  max-width: 412px;
 }
 
 .center-play {
@@ -377,6 +339,10 @@ body {
   transform: translate(-50%, -50%);
   transition: left 90ms linear;
   box-shadow: 0 8px 16px rgba(93, 36, 15, 0.14);
+}
+
+.tilt-meter {
+  display: none;
 }
 
 .bottom-icons {
@@ -439,7 +405,7 @@ body {
   }
 
   .video-title {
-    margin-top: 26px;
+    margin: 78px auto 0;
     width: min(96%, 740px);
   }
 
@@ -474,11 +440,7 @@ body {
   }
 
   .video-title {
-    font-size: 1.55rem;
-    text-shadow:
-      -2px -2px 0 var(--brown),
-      2px -2px 0 var(--brown),
-      -2px 2px 0 var(--brown),
-      2px 2px 0 var(--brown);
+    font-size: 26pt;
+    -webkit-text-stroke: 3.5px #582617;
   }
 }
