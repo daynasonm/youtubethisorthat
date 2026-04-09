@@ -251,26 +251,38 @@ function chooseRandomTwo(items) {
   return picked;
 }
 
+function showErrorState(message) {
+  leftTitle.textContent = "Could not load videos";
+  rightTitle.textContent = "Check browser console";
+  leftDuration.textContent = "--:--";
+  rightDuration.textContent = "--:--";
+  leftThumb.removeAttribute("src");
+  rightThumb.removeAttribute("src");
+  instruction.textContent = message;
+}
+
 async function loadVideos() {
-  // No key? Go straight to fallback so the prototype still runs.
+  // No key set at all → use fallback so first-run still demos. This is the ONLY
+  // case that uses the sample videos.
   if (!hasValidApiKey()) {
     console.warn(
-      "[YouTube This or That] No API key set — using built-in sample videos. " +
-        "Paste your YouTube Data API v3 key into YOUTUBE_API_KEY in script.js to use live trending."
+      "[YouTube This or That] No API key set. Paste your YouTube Data API v3 key " +
+        "into YOUTUBE_API_KEY in script.js to fetch live trending videos."
     );
     setVideos(chooseRandomTwo(FALLBACK_VIDEOS));
-    instruction.textContent = "Demo mode — add API key for live trending";
+    instruction.textContent =
+      "⚠ No API key — showing sample videos. Add your key in script.js";
     return;
   }
 
+  // Key is set → show the real error loudly instead of hiding behind fallbacks.
   try {
     instruction.textContent = "Loading trending videos...";
     const items = await fetchTrendingVideos();
     setVideos(chooseRandomTwo(items));
   } catch (error) {
-    console.error("[YouTube This or That] Falling back to sample videos:", error);
-    setVideos(chooseRandomTwo(FALLBACK_VIDEOS));
-    instruction.textContent = `API failed (${error.message}). Using sample videos.`;
+    console.error("[YouTube This or That] API call failed:", error);
+    showErrorState(`YouTube API failed: ${error.message}`);
   }
 }
 
@@ -354,18 +366,59 @@ function angleBetween(a, b) {
   return Math.atan2(b.y - a.y, b.x - a.x) * (180 / Math.PI);
 }
 
-function seedSparkles(points) {
-  sparkleSeeds = points.map((point, index) => {
-    const p = getScreenPoint(point);
-    return {
-      x: p.x,
-      y: p.y,
-      size: 6 + Math.random() * 30,
-      rotation: Math.random() * Math.PI * 2,
-      twinkle: Math.random() * Math.PI * 2,
-      alpha: index % 4 === 0 ? 0.85 : 0.35 + Math.random() * 0.45
+// MediaPipe FaceMesh face oval landmarks — the outline of the face silhouette.
+// Ordered so consecutive indices are neighbors around the oval, which lets us
+// interpolate between them for a dense, clean outline.
+const FACE_OVAL = [
+  10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288,
+  397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136,
+  172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109
+];
+
+// Number of sparkles inserted between each pair of oval landmarks.
+// Higher = denser silhouette outline.
+const POINTS_PER_SEGMENT = 4;
+
+// Stable per-sparkle properties, keyed by position in the sparkle array.
+// Seeded ONCE so size/rotation/twinkle don't re-randomize every frame —
+// that's what was causing the shimmery trailing feel.
+const SPARKLE_PROPS = [];
+function getSparkleProps(i) {
+  if (!SPARKLE_PROPS[i]) {
+    // Deterministic-ish pseudo-random based on index so it stays consistent.
+    const seed = Math.sin(i * 912.37) * 43758.5453;
+    const rnd = seed - Math.floor(seed);
+    const seed2 = Math.sin(i * 238.19) * 12543.219;
+    const rnd2 = seed2 - Math.floor(seed2);
+    SPARKLE_PROPS[i] = {
+      // Mostly small with occasional bigger accents — reads as a clean outline.
+      size: i % 7 === 0 ? 9 + rnd * 6 : 4 + rnd * 4,
+      rotation: rnd2 * Math.PI * 2,
+      twinkle: rnd * Math.PI * 2,
+      alpha: i % 5 === 0 ? 0.95 : 0.6 + rnd2 * 0.3
     };
-  });
+  }
+  return SPARKLE_PROPS[i];
+}
+
+function seedSparkles(landmarks) {
+  // Walk the oval and insert interpolated points between each pair.
+  const points = [];
+  for (let i = 0; i < FACE_OVAL.length; i += 1) {
+    const a = landmarks[FACE_OVAL[i]];
+    const b = landmarks[FACE_OVAL[(i + 1) % FACE_OVAL.length]];
+    if (!a || !b) continue;
+    const aScreen = getScreenPoint(a);
+    const bScreen = getScreenPoint(b);
+    for (let step = 0; step < POINTS_PER_SEGMENT; step += 1) {
+      const t = step / POINTS_PER_SEGMENT;
+      points.push({
+        x: aScreen.x + (bScreen.x - aScreen.x) * t,
+        y: aScreen.y + (bScreen.y - aScreen.y) * t
+      });
+    }
+  }
+  sparkleSeeds = points;
 }
 
 function drawStar(x, y, radius, rotation, alpha) {
@@ -392,38 +445,23 @@ function drawStar(x, y, radius, rotation, alpha) {
 }
 
 function drawSparkles(timestamp) {
+  // Hard clear — no motion-blur, no trailing. Sparkles represent the current
+  // silhouette position only.
   ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
   if (!faceVisible || sparkleSeeds.length === 0) return;
 
   for (let i = 0; i < sparkleSeeds.length; i += 1) {
     const s = sparkleSeeds[i];
-    const pulse = 0.78 + Math.sin(timestamp * 0.003 + s.twinkle) * 0.28;
-    const radius = s.size * pulse;
+    const props = getSparkleProps(i);
+    const pulse = 0.85 + Math.sin(timestamp * 0.003 + props.twinkle) * 0.15;
     drawStar(
       s.x,
       s.y,
-      radius,
-      s.rotation + timestamp * 0.0008,
-      Math.min(1, s.alpha * pulse)
+      props.size * pulse,
+      props.rotation,
+      Math.min(1, props.alpha * pulse)
     );
   }
-
-  const largeExtras = [
-    sparkleSeeds[8],
-    sparkleSeeds[36],
-    sparkleSeeds[58],
-    sparkleSeeds[92]
-  ].filter(Boolean);
-
-  largeExtras.forEach((s, idx) => {
-    drawStar(
-      s.x + (idx % 2 === 0 ? 46 : -36),
-      s.y + (idx < 2 ? -60 : 72),
-      36 + Math.sin(timestamp * 0.002 + idx) * 10,
-      timestamp * 0.0004 + idx,
-      0.92
-    );
-  });
 }
 
 function animate(timestamp) {
@@ -471,20 +509,9 @@ async function startCameraAndTracking() {
       const leftEyeOuter = landmarks[33];
       const rightEyeOuter = landmarks[263];
 
-      const sparkleIndices = [
-        10, 67, 103, 109, 338, 297, 332, 284,
-        54, 68, 71, 139, 127, 234, 93, 132,
-        361, 323, 356, 454, 389, 251, 301, 298,
-        152, 148, 176, 149, 150, 136, 172, 58,
-        288, 397, 365, 379, 378, 400, 377,
-        4, 6, 9, 197, 195, 5, 1, 2,
-        61, 291, 13, 14, 78, 308, 82, 312,
-        468, 473
-      ]
-        .map((i) => landmarks[i])
-        .filter(Boolean);
-
-      seedSparkles(sparkleIndices);
+      // New silhouette: pass the full landmarks array — seedSparkles walks
+      // the face oval and interpolates for a clean outline.
+      seedSparkles(landmarks);
 
       const eyeAngle = angleBetween(leftEyeOuter, rightEyeOuter);
       evaluateTilt(eyeAngle);
